@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Agent",
+      "Skill",
+      "WebFetch",
+      "WebSearch",
+      "NotebookEdit",
+      "TaskCreate",
+      "TaskUpdate"
+    ],
+    "deny": [],
+    "bypassPermissionsMode": "allow",
+    "defaultMode": "bypassPermissions"
+  },
+  "effortLevel": "high",
+  "alwaysThinkingEnabled": true
+}
