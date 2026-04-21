@@ -19,7 +19,9 @@
 #   --target <cpu>      Override TARGET_CPU (default: AVX2)
 #   --compiler <c>      g++ | clang++ | em++ (default: clang++)
 #   --build <target>    Make target: normal | evallearn | tournament
-#                       (default: evallearn — required for gensfen / shuffle_kifu)
+#                       (default: normal — sufficient for match play / baseline engines;
+#                        use `evallearn` when you need gensfen / shuffle_kifu, note that
+#                        upstream master currently has EVAL_LEARN build errors)
 #   --no-clean          Skip `make clean` before building
 #   --suffix <s>        Append to output filename (engines/YaneuraOu-<variant><suffix>)
 
@@ -30,7 +32,7 @@ shift || true
 
 TARGET_CPU=AVX2
 COMPILER=clang++
-BUILD_TARGET=evallearn
+BUILD_TARGET=normal
 DO_CLEAN=1
 SUFFIX=""
 
@@ -46,11 +48,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$VARIANT" in
-  hkp256)     EDITION=YANEURAOU_ENGINE_NNUE ;;
-  kp256)      EDITION=YANEURAOU_ENGINE_NNUE_KP256 ;;
-  hkp512)     EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_512X2_16_32 ;;
-  hkp1024)    EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_32 ;;
-  hkp1024_64) EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_64 ;;
+  hkp256)     EDITION=YANEURAOU_ENGINE_NNUE;                         OUT_NAME=YaneuraOu-HalfKP_256x2-32-32 ;;
+  kp256)      EDITION=YANEURAOU_ENGINE_NNUE_KP256;                   OUT_NAME=YaneuraOu-K-P_256-32-32 ;;
+  hkp512)     EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_512X2_16_32;      OUT_NAME=YaneuraOu-HalfKP_512x2-16-32 ;;
+  hkp1024)    EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_32;      OUT_NAME=YaneuraOu-HalfKP_1024x2-8-32 ;;
+  hkp1024_64) EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_1024X2_8_64;      OUT_NAME=YaneuraOu-HalfKP_1024x2-8-64 ;;
   *) echo "unknown variant: $VARIANT" >&2; echo "see script header for supported variants" >&2; exit 2 ;;
 esac
 
@@ -89,6 +91,6 @@ if [[ ! -f $SRC_BIN ]]; then
   exit 4
 fi
 
-DEST=$OUT_DIR/YaneuraOu-${VARIANT}${SUFFIX}
+DEST=$OUT_DIR/${OUT_NAME}${SUFFIX}
 cp "$SRC_BIN" "$DEST"
 echo "built: $DEST"
