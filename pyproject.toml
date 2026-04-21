@@ -1,0 +1,39 @@
+[project]
+name = "nnue-pytorch-shogi"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "asciimatics>=1.15.0",
+    "cshogi>=0.9.7",
+    "cupy-cuda12x>=13.6.0",
+    "gputil>=1.4.0",
+    "hf-transfer>=0.1.9",
+    "huggingface-hub>=1.11.0",
+    "lightning>=2.6.1",
+    "matplotlib>=3.10.8",
+    "numba>=0.65.0",
+    "numpy<2.0",
+    "paramiko>=4.0.0",
+    "psutil>=7.2.2",
+    "python-chess==0.31.4",
+    "python-dotenv>=1.2.2",
+    "requests>=2.33.1",
+    "scipy>=1.17.1",
+    "tensorboard>=2.20.0",
+    "torch>=2.6.0",
+    "wandb>=0.26.0",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[dependency-groups]
+dev = [
+    "py-spy>=0.4.1",
+    "pytest>=9.0.3",
+]
