@@ -9,16 +9,13 @@ Built on YaneuraOu V8.50 with tanuki-dr5 compatible gensfen / shuffle_kifu pipel
 ## Pipeline
 
 ```
-/gensfen                          /train                        /eval
-   |                                 |                             |
-   v                                 v                             v
-YaneuraOu gensfen (depth search) PyTorch Lightning            YaneuraOu matches
-   |                                 |                             |
-   v                                 v                             v
-shuffle_kifu (ApplyQSearch)      nn.bin output                 Elo +/- 95% CI
-   |
-   v
-data/<name>/shuffled.bin
+/gensfen                        /train                       /eval
+  │                               │                            │
+  ├─ YaneuraOu gensfen            ├─ PyTorch Lightning         ├─ YaneuraOu matches
+  │  (depth search)               │                            │
+  ├─ shuffle_kifu                 └─► nn.bin                   └─► Elo ±95% CI
+  │  (ApplyQSearch)
+  └─► data/<name>/shuffled.bin ──────┘
 ```
 
 ## Directory Layout
