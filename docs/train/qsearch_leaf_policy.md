@@ -129,8 +129,35 @@ gensfen / shuffle_kifu に影響する以下のコンポーネントは tanuki-d
 
 これにより、**gensfen + shuffle_kifu のパイプラインは V8.50 単体で完結する**。tanuki- バイナリは不要。
 
-## 未決事項
+## 解決済み事項 (tanuki-dr5 に合わせた判断)
 
-- gensfen 改造時、`write_minply` / `write_maxply` のフィルタは root を基準にするか leaf を基準にするか。
-- 千日手・王手局面を leaf にすると問題がないか (現状の evaluate_leaf は千日手で早期 return しているが、sfen 側も同じ扱いでよいか)。
-- Stockfish 互換の `smart-fen-skipping` を併用するかどうか。
+### write_minply / write_maxply のフィルタ基準
+
+**root 局面の ply を基準にする** (tanuki-dr5 と同一)。
+
+gensfen 内の `ply < write_minply - 1` チェックは対局進行中のカウンタ (`ply`) に対して行われる。qsearch leaf への変換は shuffle_kifu の後処理なので、gensfen 時点では root 基準でフィルタするのが正しい。tanuki-dr5 も V8.50 も同じ実装。
+
+### 千日手・王手局面の leaf 変換
+
+**特別な処理は不要** (tanuki-dr5 と同一)。
+
+gensfen 内で千日手は `pos.is_repetition()` で判定し、`REPETITION_WIN`/`REPETITION_DRAW`/`REPETITION_LOSE` でゲ���ムを終了させる。千日手局面自体は書き出し対象にならない (`game_end = true` で対局が打ち切られ、それ以前の局面のみ `game_result` が付与される)。
+
+shuffle_kifu の `ApplyQSearch` では `Learner::qsearch(pos)` を呼ぶだけであり、qsearch 内部で千日手局面に到達した場合は探索が自然に打ち切られるため、問題は起きない。
+
+### smart-fen-skipping
+
+**採用しない** (tanuki-dr5 と同一)。
+
+tanuki-dr5 に `smart-fen-skipping` の実装はなく、将棋では qsearch leaf 方式で十分。Stockfish の `--smart-fen-skipping` は駒を取る局面と王手局面を除外するアプローチだが、`shuffle_kifu` の `ApplyQSearch` が同等以上の役割を果たしている。
+
+### learner の shallow_value 取得方法の差異
+
+tanuki-dr5 と V8.50 で learner (`learn` コマンド) の shallow_value 取得が��なる:
+
+| | tanuki-dr5 | V8.50 |
+|---|---|---|
+| shallow_value | `Eval::evaluate(pos)` | `Learner::qsearch(pos)` |
+| 前提 | shuffle_kifu で qsearch leaf 変換済み | 学習時に毎回 qsearch 実行 |
+
+tanuki-dr5 は「shuffle_kifu で既に leaf に変換してあるから evaluate() だけで良い」という設計。V8.50 は「毎回 qsearch() を走らせて正確な値を取る」設計。`ApplyQSearch=true` で shuffle 済みデータを使う限り、どちらも同じ結果になる。現状は V8.50 の実装のままとする (qsearch の追加コストは learner 全体に対して微小)。
