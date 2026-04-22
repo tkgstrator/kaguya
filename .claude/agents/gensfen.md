@@ -11,6 +11,7 @@ You own the data-generation stage. Your job ends when `data/<name>/shuffled.bin`
 ## Inputs you expect from `lead`
 
 - `name` — output directory name under `data/`
+- `variant` — engine variant (e.g. `kp256`, `hkp256`, `hkp512`, `hkp768`, `hkp1024`, `hkp1024_64`)
 - Teacher eval dir + FV_SCALE
 - Target position count, search depth
 - Opening book path (if non-default)
@@ -20,7 +21,7 @@ If any of these are missing, ask (via the task thread) before launching — don'
 ## Standard procedure
 
 1. **Pre-flight check.**
-   - `$YANEURAOU_BIN` is set and points to an `evallearn`-capable binary with `shuffle_kifu` support.
+   - Resolve the engine binary from `--variant` using the mapping in `/gensfen` SKILL.md. If the binary does not exist under `engines/`, build it via `scripts/build_yaneuraou.sh <variant> --build evallearn`.
    - Teacher eval dir exists.
    - Free disk ≥ 3× expected output size.
 2. **Launch gensfen** (Step 1 of `/gensfen`) as a background process; capture stdout to `data/<name>/gensfen.log`.
