@@ -20,7 +20,9 @@ graph LR
     E[YaneuraOu matches]
   end
 
-  B -->|shuffled.bin| C
+  B -->|shuffled.bin| D[split]
+  D -->|train.bin| C
+  D -->|val.bin| C
   C -->|nn.bin| E
   E -->|Elo ±95% CI| F((Result))
 ```
