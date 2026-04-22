@@ -12,9 +12,9 @@ NNUE の学習データは、**qsearch (静止探索) を通した末端局面**
 - **経験的根拠**: nodchip 氏の検証で qsearch を行わないと弱くなることが確認されている。
 - **Stockfish との違い**: Stockfish は `--smart-fen-skipping` (駒を取る局面と王手局面を除外) で代替したが、将棋では qsearch 方式のほうが有効。
 
-## 現状のパイプラインとの差分
+## gensfen の sfen / score 不整合
 
-`YaneuraOu/source/learn/learner.cpp` の `gensfen` コマンドは、
+`gensfen` コマンド (`source/learn/learner.cpp`) は以下のように動作する:
 
 ```cpp
 auto pv_value1 = search(pos, depth);   // 通常探索
@@ -23,80 +23,111 @@ pos.sfen_pack(psv.sfen);               // root 局面を保存
 psv.score = evaluate_leaf(pos, pv1);   // PV leaf での評価値
 ```
 
-となっており、
-
 - **sfen**: root 局面 (qsearch 前、駒取り途中や王手局面も混入)
 - **score**: PV leaf (実質 qsearch 末端) の評価値
 
-という不整合がある。`training_data_loader.cpp` 側では qsearch を一切行わず binpack をそのまま読むため、この不整合はそのまま学習に持ち込まれている。
+この不整合を解消するのが `shuffle_kifu` の `ApplyQSearch=true` オプション。
 
-## 今後の方針
+## パイプライン
 
-1. **新規教師の生成では qsearch 末端を保存する**
-   - gensfen 側で `pos.sfen_pack` を PV leaf (qsearch 終了時の局面) まで進めた位置で行う。
-   - `psv.move` / `psv.game_result` も leaf を起点に整合させる。
-2. **既存 binpack は基本的に再利用しない**
-   - 出自 (gensfen / rescore / 外部提供) が混在しているので、qsearch 末端に変換するより、新規生成に切り替えるほうがクリーン。
-   - どうしても再利用したい場合のみ、別途「binpack を qsearch で leaf に置換する」変換スクリプトを作る (rescore の亜種)。
-3. **nnue-pytorch 側で qsearch は実装しない**
-   - Python/C++ どちらで書いても Position/TT を扱う必要があり重い。C++ の `learner.cpp` (nodchip 実装) と役割分担を崩さない。
+```
+gensfen (depth探索)
+  → raw/*.bin (root局面 + PV leaf評価値)
+    → shuffle_kifu (ApplyQSearch=true)
+      → shuffled.bin (qsearch末端局面 + 評価値/勝敗反転済み)
+        → train (学習)
+```
 
-## 実装: shuffle_kifu コマンド
+## 実装: shuffle_kifu コマンド (V8.50)
 
-tanuki-dr4-learner の `ShuffleKifu` を YaneuraOu 7.62 に移植。既存 binpack を qsearch leaf に変換する USI コマンド。
+tanuki-dr5 の `ShuffleKifu` を YaneuraOu V8.50 に移植済み。`gensfen` で生成した raw binpack を qsearch leaf に変換し、シャッフルする USI コマンド。
 
-### ソースファイル
+### ソースファイル (V8.50)
 
-- `YaneuraOu/source/learn/kifu_shuffler.h` — 名前空間 `KifuShuffler` の宣言
-- `YaneuraOu/source/learn/kifu_shuffler.cpp` — 実装本体
+| ファイル | 役割 |
+|---|---|
+| `source/tanuki_kifu_shuffler.h` | `Tanuki::ShuffleKifu` 宣言 |
+| `source/tanuki_kifu_shuffler.cpp` | 実装本体 |
+| `source/tanuki_kifu_reader.h/.cpp` | binpack 読み込み |
+| `source/tanuki_kifu_writer.h/.cpp` | binpack 書き出し |
+| `source/tanuki_progress.h/.cpp` | 進行度推定 (フィルタ用) |
+| `source/usi.cpp` (871行目) | `shuffle_kifu` コマンド登録 |
+| `source/usi_option.cpp` (240行目) | USI オプション登録 |
 
-### 動作
+### ApplyQSearch の処理フロー
 
-1. `KifuDir` フォルダ内の全 `.bin` を 1M 件単位で読み込む
-2. `ApplyQSearch=true` の場合、各 record に対して OpenMP 並列で `Learner::qsearch(pos)` を実行し、PV 末端まで `do_move` → `sfen_pack` で sfen を leaf に置換。`move=MOVE_NONE`、手番が異なれば `score`/`game_result` を反転
+1. raw binpack から 1M 件単位で `PackedSfenValue` を読み込む
+2. `ApplyQSearch=true` の場合、OpenMP 並列で各レコードに対して:
+   - `set_from_packed_sfen()` で局面を復元
+   - `Learner::qsearch(pos)` を実行し PV を取得
+   - PV を `do_move` で末端まで進める
+   - `pos.sfen_pack(record.sfen)` で **leaf 局面** の sfen に置換
+   - `record.move = MOVE_NONE` に設定
+   - root と leaf の手番が異なる場合、`score` と `game_result` を反転
 3. 256 個の tmp ファイルにランダム分配 (Pass 1)
-4. 各 tmp を `std::shuffle` → 最終 `ShuffledKifuDir/shuffled.bin` にマージ (Pass 2)
+4. 各 tmp を `std::shuffle` → 最終 `shuffled.bin` にマージ (Pass 2)
 
 ### USI オプション
 
-| オプション名          | デフォルト     | 説明                          |
-|-----------------------|----------------|-------------------------------|
-| `KifuDir`             | `kifu`         | 入力 binpack フォルダ         |
-| `ShuffledKifuDir`     | `kifu_shuffled`| 出力フォルダ                  |
-| `ApplyQSearch`        | `false`        | qsearch leaf 化を行うか       |
-| `KifuReaderBufferSize`| 1048576        | 読み込みバッファ (bytes)      |
-| `KifuWriterBufferSize`| 1048576        | 書き込みバッファ (bytes)      |
-
-### ビルドコマンド
-
-```sh
-# halfkp_768 (AobaNNUE 互換)
-make evallearn YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE_HALFKP_768X2_16_64 \
-  COMPILER=g++ TARGET_CPU=AVX2 -j$(nproc)
-# バイナリ: YaneuraOu/source/YaneuraOu-by-gcc
-
-# halfkp_256 (標準 NNUE)
-make evallearn YANEURAOU_EDITION=YANEURAOU_ENGINE_NNUE \
-  COMPILER=g++ TARGET_CPU=AVX2 -j$(nproc)
-```
+| オプション名 | デフォルト | 説明 |
+|---|---|---|
+| `KifuDir` | `""` | 入力 binpack フォルダ |
+| `ShuffledKifuDir` | `kifu_shuffled` | 出力フォルダ |
+| `ShuffledMinPly` | 1 | 最小手数フィルタ |
+| `ShuffledMaxPly` | INT_MAX/2 | 最大手数フィルタ |
+| `ShuffledMinProgress` | `0.0` | 最小進行度フィルタ |
+| `ShuffledMaxProgress` | `1.0` | 最大進行度フィルタ |
+| `ApplyQSearch` | `false` | qsearch leaf 置換を行うか |
 
 ### 使用例
 
 ```
 setoption name EvalDir value eval/hkp768
 setoption name FV_SCALE value 40
-setoption name KifuDir value data/aobannue_depth9
-setoption name ShuffledKifuDir value data/aobannue_depth9_shuffled
+setoption name Threads value 8
+setoption name USI_Hash value 8192
+setoption name KifuDir value data/run1/raw
+setoption name ShuffledKifuDir value data/run1
 setoption name ApplyQSearch value true
 isready
 shuffle_kifu
+quit
 ```
 
-### 剥がした tanuki 固有機能
+### 注意事項
 
-- `Tanuki::Progress` 依存 (`ShuffledMinProgress` / `ShuffledMaxProgress` フィルタ) — 削除
-- `record.last_position` / `ShuffledMinPly` / `ShuffledMaxPly` フィルタ — 削除
-- Windows 専用 API (`_mkdir`, `_fseeki64` 等) — POSIX 版に統一
+- `shuffle_kifu` は raw データの約 2 倍のディスク容量を一時的に使用する (256 個の中間ファイル)
+- 進行度フィルタ (`ShuffledMinProgress`/`ShuffledMaxProgress`) を使う場合は `progress.bin` が必要
+- binpack 1 レコード = 40 バイト (`PackedSfenValue` 構造体)
+
+## tanuki-dr5 から V8.50 への移植で変更した点
+
+### tanuki-dr5 固有機能の扱い
+
+| 機能 | tanuki-dr5 | V8.50 | 備考 |
+|---|---|---|---|
+| `Tanuki::Progress` | あり | 移植済み | 進行度フィルタ用 |
+| `record.last_position` | あり (手数リセットに使用) | 移植済み | フィールドは PackedSfenValue に存在 |
+| `ShuffledMinPly`/`ShuffledMaxPly` | あり | 移植済み | |
+| `ShuffledMinProgress`/`ShuffledMaxProgress` | あり | 移植済み | |
+| Windows API (`_mkdir`, `_fseeki64` 等) | あり | POSIX 化済み | `mkdir`, `fseeko` 等に置換 |
+
+### V8.50 側で統一済みのコンポーネント
+
+gensfen / shuffle_kifu に影響する以下のコンポーネントは tanuki-dr5 と統一済み:
+
+| コンポーネント | 変更内容 |
+|---|---|
+| TT API | `TTEntry*` + `bool& found` 方式に統一 (`tt.h`/`tt.cpp` 全面置換) |
+| TT メモリ管理 | `LargeMemory` RAII (`memory.h` 追加) |
+| VALUE_SUPERIOR | 31743 → 28000 |
+| VALUE_MAX_EVAL | 31743 → 27000 |
+| VALUE_KNOWN_WIN | 追加 (30744) |
+| DEPTH_ENTRY_OFFSET | -3 → -7 |
+| gensfen seed | 追加済み (両エンジン共通) |
+| gensfen2019 write_minply | 1 → 16 |
+
+これにより、**gensfen + shuffle_kifu のパイプラインは V8.50 単体で完結する**。tanuki- バイナリは不要。
 
 ## 未決事項
 
