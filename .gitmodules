@@ -2,7 +2,3 @@
 	path = vendor/YaneuraOu
 	url = https://github.com/tkgstrator/YaneuraOu
 	branch = learn
-[submodule "vendor/tanuki-"]
-	path = vendor/tanuki-
-	url = https://github.com/nodchip/tanuki-
-	branch = tanuki-dr5_production-learner
