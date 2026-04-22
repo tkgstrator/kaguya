@@ -1,75 +1,75 @@
-# kaguya — NNUE 学習パイプライン
+# kaguya — Shogi NNUE Training Pipeline
 
-将棋 NNUE (Efficiently Updatable Neural Network) の教師局面生成・学習・評価を一気通貫で行うためのツールキット。
+End-to-end toolkit for generating training positions, training, and evaluating Shogi NNUE (Efficiently Updatable Neural Network) models.
 
-## 概要
+## Overview
 
-YaneuraOu V8.50 をベースに、tanuki-dr5 互換の gensfen / shuffle_kifu パイプラインを構築。Claude Code のスラッシュコマンド (`/gensfen`, `/train`, `/eval`) で対話的に実行できる。
+Built on YaneuraOu V8.50 with tanuki-dr5 compatible gensfen / shuffle_kifu pipeline. Driven interactively via Claude Code slash commands (`/gensfen`, `/train`, `/eval`).
 
-## パイプライン
+## Pipeline
 
 ```
 /gensfen                          /train                        /eval
-   │                                 │                             │
-   ▼                                 ▼                             ▼
-YaneuraOu gensfen (depth探索)   PyTorch Lightning            YaneuraOu 対局
-   │                                 │                             │
-   ▼                                 ▼                             ▼
-shuffle_kifu (ApplyQSearch)     nn.bin 出力                   Elo ±95% CI
-   │
-   ▼
+   |                                 |                             |
+   v                                 v                             v
+YaneuraOu gensfen (depth search) PyTorch Lightning            YaneuraOu matches
+   |                                 |                             |
+   v                                 v                             v
+shuffle_kifu (ApplyQSearch)      nn.bin output                 Elo +/- 95% CI
+   |
+   v
 data/<name>/shuffled.bin
 ```
 
-## ディレクトリ構成
+## Directory Layout
 
 ```
 engines/
-  eval/{kp256,hkp256,hkp768}/nn.bin   teacher eval
-  book/user_book1.db                   定跡 DB
-  YaneuraOu-*_learn                    evallearn バイナリ
+  eval/{kp256,hkp256,hkp768}/nn.bin   teacher eval files
+  book/user_book1.db                   opening book
+  YaneuraOu-*_learn                    evallearn binaries
 vendor/
-  YaneuraOu/                           V8.50 (learn ブランチ, tanuki-dr5 互換改修済み)
+  YaneuraOu/                           V8.50 (learn branch, tanuki-dr5 compatible)
 scripts/
-  build_yaneuraou.sh                   ビルドヘルパー (6バリアント対応)
-  compare_gensfen.py                   gensfen 出力比較スクリプト
+  build_yaneuraou.sh                   build helper (6 variants)
+  compare_gensfen.py                   gensfen output comparison script
 data/
-  <name>/raw/                          gensfen 生データ
-  <name>/shuffled.bin                  シャッフル + qsearch leaf 変換済み
+  <name>/raw/                          gensfen raw output
+  <name>/shuffled.bin                  shuffled + qsearch leaf replacement
 docs/
-  plans/                               改修プラン・差分記録
-  train/                               学習方針ドキュメント
+  plans/                               migration plans and change tracking
+  train/                               training policy documentation
 ```
 
-## 対応バリアント
+## Supported Variants
 
-| variant | アーキテクチャ | FV_SCALE | eval |
+| variant | architecture | FV_SCALE | eval available |
 |---|---|---|---|
-| `kp256` | K-P 256-32-32 | 16 | あり |
-| `hkp256` | HalfKP 256x2-32-32 | 20 | あり |
-| `hkp768` | HalfKP 768x2-16-64 | 40 | あり |
+| `kp256` | K-P 256-32-32 | 16 | yes |
+| `hkp256` | HalfKP 256x2-32-32 | 20 | yes |
+| `hkp768` | HalfKP 768x2-16-64 | 40 | yes |
 | `hkp512` | HalfKP 512x2-16-32 | 16 | — |
 | `hkp1024` | HalfKP 1024x2-8-32 | 16 | — |
 | `hkp1024_64` | HalfKP 1024x2-8-64 | 16 | — |
 
-## クイックスタート
+## Quick Start
 
-### エンジンビルド
+### Build Engine
 
 ```bash
 scripts/build_yaneuraou.sh hkp768 --build evallearn
 ```
 
-### 教師局面生成
+### Generate Training Positions
 
 ```bash
-# Claude Code から
+# From Claude Code
 /gensfen
-# → variant, count, depth を対話的に選択
-# → gensfen + shuffle_kifu (ApplyQSearch=true) を自動実行
+# → interactively select variant, count, depth
+# → runs gensfen + shuffle_kifu (ApplyQSearch=true) automatically
 ```
 
-### 手動実行
+### Manual Execution
 
 ```bash
 engines/YaneuraOu-HalfKP_768x2-16-64_learn <<EOF
@@ -85,25 +85,25 @@ quit
 EOF
 ```
 
-## YaneuraOu V8.50 への改修内容
+## YaneuraOu V8.50 Modifications
 
-tanuki-dr5 との互換性のために以下を変更済み:
+Changes made for tanuki-dr5 compatibility:
 
-- **TT (置換表)**: `TTData`/`TTWriter` tuple API → `TTEntry*` + `bool& found` API に全面置換
-- **TT メモリ管理**: `LargeMemory` RAII クラス導入
-- **定数統一**: `VALUE_SUPERIOR`=28000, `VALUE_MAX_EVAL`=27000, `VALUE_KNOWN_WIN`=30744, `DEPTH_ENTRY_OFFSET`=-7
-- **gensfen**: seed パラメータ追加、write_minply デフォルト統一 (16)
-- **shuffle_kifu**: tanuki-dr5 の `ShuffleKifu` + `ApplyQSearch` を移植
-- **クラッシュ修正**: `MultiThink::go_think()` 内の `is_ready(true)` による TT メモリ破壊を解消
+- **TT (transposition table)**: replaced `TTData`/`TTWriter` tuple API with `TTEntry*` + `bool& found` API
+- **TT memory management**: introduced `LargeMemory` RAII class
+- **Constants**: `VALUE_SUPERIOR`=28000, `VALUE_MAX_EVAL`=27000, `VALUE_KNOWN_WIN`=30744, `DEPTH_ENTRY_OFFSET`=-7
+- **gensfen**: added seed parameter, unified write_minply default (16)
+- **shuffle_kifu**: ported tanuki-dr5 `ShuffleKifu` + `ApplyQSearch`
+- **Crash fix**: resolved TT memory corruption caused by `is_ready(true)` in `MultiThink::go_think()`
 
-変更箇所の詳細は `docs/plans/gensfen_parity_with_tanuki.md` を参照。
+See `docs/plans/gensfen_parity_with_tanuki.md` for detailed change tracking.
 
-## 要件
+## Requirements
 
 - Ubuntu 24.04 / g++ 13.3
-- AVX2 対応 CPU
+- AVX2-capable CPU
 - OpenMP (libgomp1)
 
-## ライセンス
+## License
 
-YaneuraOu のライセンスに準拠。
+Subject to YaneuraOu's license terms.
