@@ -106,4 +106,4 @@ See `docs/plans/gensfen_parity_with_tanuki.md` for detailed change tracking.
 
 ## License
 
-Subject to YaneuraOu's license terms.
+[GPL-3.0](LICENSE) — following [YaneuraOu](https://github.com/yaneurao/YaneuraOu) upstream license.
