@@ -24,21 +24,27 @@ data/<name>/shuffled.bin
 ## Directory Layout
 
 ```
-engines/
-  eval/{kp256,hkp256,hkp768}/nn.bin   teacher eval files
-  book/user_book1.db                   opening book
-  YaneuraOu-*_learn                    evallearn binaries
-vendor/
-  YaneuraOu/                           V8.50 (learn branch, tanuki-dr5 compatible)
-scripts/
-  build_yaneuraou.sh                   build helper (6 variants)
-  compare_gensfen.py                   gensfen output comparison script
-data/
-  <name>/raw/                          gensfen raw output
-  <name>/shuffled.bin                  shuffled + qsearch leaf replacement
-docs/
-  plans/                               migration plans and change tracking
-  train/                               training policy documentation
+.
+├── engines/
+│   ├── eval/
+│   │   ├── kp256/nn.bin                 # teacher eval files
+│   │   ├── hkp256/nn.bin
+│   │   └── hkp768/nn.bin
+│   ├── book/
+│   │   └── user_book1.db                # opening book
+│   └── YaneuraOu-*_learn                # evallearn binaries
+├── vendor/
+│   └── YaneuraOu/                       # V8.50 (learn branch, tanuki-dr5 compatible)
+├── scripts/
+│   ├── build_yaneuraou.sh               # build helper (6 variants)
+│   └── compare_gensfen.py               # gensfen output comparison
+├── data/
+│   └── <name>/
+│       ├── raw/                         # gensfen raw output
+│       └── shuffled.bin                 # shuffled + qsearch leaf replacement
+└── docs/
+    ├── plans/                           # migration plans and change tracking
+    └── train/                           # training policy documentation
 ```
 
 ## Supported Variants
