@@ -1,4 +1,4 @@
-# gensfen / shuffle_kifu を tanuki-dr5 と V8.50 で一致させるプラン
+# YaneuraOu V8.50 を tanuki-dr5 互換に改修するプラン
 
 ## 背景
 
@@ -118,6 +118,20 @@ setoption name BookFile value user_book1.db
 | `source/types.cpp` | ponder 用 `tt.probe()` 呼び出しを新 API に変換 |
 | `source/testcmd/unit_test.cpp` | `TranspositionTable::UnitTest` の呼び出しを無効化 (tanuki- 互換 TT には UnitTest なし) |
 
+### Phase 5b — 定数の統一 (V8.50 → tanuki- 互換)
+
+- [x] `VALUE_SUPERIOR`: `VALUE_TB_WIN_IN_MAX_PLY - 1` (=31743) → `28000` に変更
+- [x] `VALUE_MAX_EVAL`: `VALUE_SUPERIOR` (=31743) → `27000` に変更
+- [x] `VALUE_KNOWN_WIN`: 未定義 → `VALUE_MATE_IN_MAX_PLY - 1000` (=30744) を追加
+- [x] `DEPTH_ENTRY_OFFSET`: `-3` → `-7` に変更 (tanuki- の `DEPTH_OFFSET` と同値)
+- [x] HKP256 / HKP768 の両バリアントでクリーンビルド確認
+
+**変更ファイル (V8.50):**
+
+| ファイル | 変更内容 |
+|---|---|
+| `source/types.h` | `VALUE_KNOWN_WIN` 追加、`VALUE_SUPERIOR` を 28000 に、`VALUE_MAX_EVAL` を 27000 に、`DEPTH_ENTRY_OFFSET` を -7 に変更。各定数に V8.50 original 値をコメントで記録 |
+
 ### Phase 6 — コミット
 
 - [x] V8.50 の変更を commitlint 形式でコミット
@@ -180,14 +194,14 @@ V8.50 と tanuki-dr5 は探索エンジンのバージョンが異なる (V8.50 
 
 これらは同一の TT/gensfen パラメータを使っても異なる探索結果をもたらすが、統計分布は近似する。
 
-### 定数の差異 (gensfen には影響しない)
+### 定数比較 (Phase 5b で統一済み)
 
-| 定数 | V8.50 | tanuki-dr5 | 影響範囲 |
-|---|---|---|---|
-| VALUE_SUPERIOR | 31743 | 28000 | learner のみ |
-| VALUE_MAX_EVAL | 31743 | 27000 | learner のみ |
-| VALUE_KNOWN_WIN | N/A | 30744 | tanuki- 固有 |
-| DEPTH_ENTRY_OFFSET / DEPTH_OFFSET | -3 | -7 | TTEntry の depth 格納 (内部差異のみ) |
+| 定数 | V8.50 original | tanuki-dr5 | V8.50 変更後 | 一致 |
+|---|---|---|---|---|
+| VALUE_SUPERIOR | 31743 (`VALUE_TB_WIN_IN_MAX_PLY-1`) | 28000 | 28000 | ✅ |
+| VALUE_MAX_EVAL | 31743 (`VALUE_SUPERIOR`) | 27000 | 27000 | ✅ |
+| VALUE_KNOWN_WIN | 未定義 | 30744 (`VALUE_MATE_IN_MAX_PLY-1000`) | 30744 | ✅ |
+| DEPTH_ENTRY_OFFSET / DEPTH_OFFSET | -3 | -7 | -7 | ✅ |
 
 ---
 
@@ -201,4 +215,5 @@ V8.50 と tanuki-dr5 は探索エンジンのバージョンが異なる (V8.50 
 - [x] score 平均の差異 < 100, gamePly 平均の差異 < 5 (1000 レコード)
 - [x] shuffle_kifu (ApplyQSearch=true) が V8.50 で完走
 - [x] TT 実装が tanuki-dr5 互換 API に統一
+- [x] 定数 (VALUE_SUPERIOR, VALUE_MAX_EVAL, VALUE_KNOWN_WIN, DEPTH_ENTRY_OFFSET) が tanuki-dr5 と同値
 - [x] 全変更がコミット済み
