@@ -106,7 +106,7 @@ setoption name BookFile value $BOOK_FILE
 setoption name Threads value $(nproc)
 setoption name USI_Hash value 8192
 isready
-gensfen depth <depth> loop <count> output_file_name data/<name>/raw/gen
+gensfen depth <depth> loop <count> save_every 1000000 output_file_name data/<name>/raw/gen
 quit
 EOF
 
@@ -130,6 +130,7 @@ EOF
 ## Execution notes
 
 - gensfen is CPU-bound and long-running — always launch with `run_in_background` and monitor via `Monitor`.
+- `save_every 1000000` splits output into 1M-record chunks (`gen_1`, `gen_2`, ...). This enables progress tracking (count files × 40MB) and resumability. `shuffle_kifu` reads all `.bin` files in `KifuDir`, so chunked output works transparently.
 - `shuffle_kifu` needs ~2x the raw data size as temp space.
 - Binpack record = 40 bytes; validate expected file size (`count * 40`).
 - For fleet-distributed generation across multiple hosts, delegate to the `nnue-fleet` skill instead.
