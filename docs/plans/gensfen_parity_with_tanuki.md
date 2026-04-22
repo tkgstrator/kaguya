@@ -124,6 +124,7 @@ setoption name BookFile value user_book1.db
 - [x] `VALUE_MAX_EVAL`: `VALUE_SUPERIOR` (=31743) → `27000` に変更
 - [x] `VALUE_KNOWN_WIN`: 未定義 → `VALUE_MATE_IN_MAX_PLY - 1000` (=30744) を追加
 - [x] `DEPTH_ENTRY_OFFSET`: `-3` → `-7` に変更 (tanuki- の `DEPTH_OFFSET` と同値)
+- [x] `gensfen2019` の `write_minply`: `1` → `16` に変更 (depth ベース gensfen は元から 16)
 - [x] HKP256 / HKP768 の両バリアントでクリーンビルド確認
 
 **変更ファイル (V8.50):**
@@ -131,6 +132,7 @@ setoption name BookFile value user_book1.db
 | ファイル | 変更内容 |
 |---|---|
 | `source/types.h` | `VALUE_KNOWN_WIN` 追加、`VALUE_SUPERIOR` を 28000 に、`VALUE_MAX_EVAL` を 27000 に、`DEPTH_ENTRY_OFFSET` を -7 に変更。各定数に V8.50 original 値をコメントで記録 |
+| `source/learn/learner.cpp` | `gensfen2019` の `write_minply` デフォルトを 1 → 16 に変更 |
 
 ### Phase 6 — コミット
 
@@ -155,7 +157,7 @@ setoption name BookFile value user_book1.db
 | デフォルト loop_max | 8,000,000,000 | 8,000,000,000 | ✅ |
 | デフォルト eval_limit | 3000 (mate_in(2)=31998 でキャップ) | 3000 (同左) | ✅ |
 | デフォルト search_depth | 3 | 3 | ✅ |
-| デフォルト write_minply | 1 | 16 | ❌ (コマンドで指定すれば同一) |
+| デフォルト write_minply | 16 | 16 | ✅ (V8.50 original: gensfen=16, gensfen2019=1 → 16 に変更) |
 | デフォルト write_maxply | 400 | 400 | ✅ |
 | PackedSfenValue 構造体 | 40バイト | 同左 | ✅ |
 | SfenWriter バッファサイズ | 5000 | 5000 | ✅ |
